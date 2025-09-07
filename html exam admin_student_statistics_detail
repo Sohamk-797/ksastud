@@ -1,1 +1,216 @@
+{% extends 'exam/adminbase.html' %}
+{% load static %}
+{% block content %}
+<head>
+  <style>
+    .header {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #0288d1;
+      margin: 1.5rem 0 1rem 0;
+      text-align: center;
+    }
+    .meta {
+      text-align: center;
+      color: #555;
+      margin-bottom: 1rem;
+    }
+    .card-box {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 1.25rem;
+      border: none;
+      margin-bottom: 1rem;
+    }
+    .badge-strong { background: #1b5e20; }
+    .badge-weak { background: #b71c1c; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<div class="container">
+  <div class="header">Student Statistics</div>
+  <div class="meta">{{ student.get_name }} — Batch: {{ student.batch }}</div>
 
+  <div class="row">
+    <div class="col-12 col-lg-6">
+      <div class="card-box">
+        <h5 class="mb-3">Subject-wise Performance</h5>
+        {% if subjects and subj_pct %}
+          <canvas id="subjectChart" height="220"></canvas>
+        {% else %}
+          <div class="text-muted">No data yet</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card-box">
+        <h5 class="mb-3">Overall vs Batch Average</h5>
+        {% if subjects and batch_pct %}
+          <canvas id="compareChart" height="220"></canvas>
+        {% else %}
+          <div class="text-muted">No data yet</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card-box">
+        <h5 class="mb-3">Performance Trend Over Time (per Subject)</h5>
+        {% if trend_labels %}
+          <canvas id="trendChart" height="280"></canvas>
+        {% else %}
+          <div class="text-muted">No data yet</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card-box">
+        <h5 class="mb-3">Strengths & Weaknesses</h5>
+        {% if strengths or weaknesses %}
+          <div class="mb-2"><strong>Strengths:</strong>
+            {% if strengths %}
+              {% for s in strengths %}
+                <span class="badge badge-strong text-white me-1">{{ s }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">No data yet</span>
+            {% endif %}
+          </div>
+          <div><strong>Weaknesses:</strong>
+            {% if weaknesses %}
+              {% for s in weaknesses %}
+                <span class="badge badge-weak text-white me-1">{{ s }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">No data yet</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="text-muted">No data yet</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Safely embed data as JSON to avoid malformed JS #}
+{{ subjects|json_script:'subjects-data' }}
+{{ subj_pct|json_script:'subj-pct-data' }}
+{{ batch_pct|json_script:'batch-pct-data' }}
+{{ trend_labels|json_script:'trend-labels-data' }}
+{{ trend_by_subject|json_script:'trend-by-subject-data' }}
+
+<script>
+(function(){
+  const subjects = JSON.parse(document.getElementById('subjects-data').textContent || '[]');
+  const subjPct = JSON.parse(document.getElementById('subj-pct-data').textContent || '[]'); // percentages or nulls
+  const batchPct = JSON.parse(document.getElementById('batch-pct-data').textContent || '[]'); // percentages or nulls
+  const trendLabels = JSON.parse(document.getElementById('trend-labels-data').textContent || '[]');
+  const trendBySubject = JSON.parse(document.getElementById('trend-by-subject-data').textContent || '{}'); // {subject: [pct|null,...]}
+
+  function toColors(n, alpha){
+    const palette = [
+      '255,99,132','54,162,235','255,206,86','75,192,192','153,102,255','255,159,64','46,125,50','26,35,126'
+    ];
+    const out = [];
+    for(let i=0;i<n;i++){
+      out.push('rgba(' + palette[i % palette.length] + ',' + (alpha ?? 0.7) + ')');
+    }
+    return out;
+  }
+
+  // Subject-wise bar chart
+  if (subjects && subjPct) {
+    const ctx = document.getElementById('subjectChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: subjects,
+          datasets: [{
+            label: 'Score %',
+            data: subjPct.map(v => v === null ? 0 : v),
+            backgroundColor: toColors(subjects.length, 0.6),
+            borderColor: toColors(subjects.length, 1),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+  }
+
+  // Comparison chart (student vs batch)
+  if (subjects && batchPct) {
+    const ctx2 = document.getElementById('compareChart');
+    if (ctx2) {
+      new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: subjects,
+          datasets: [
+            {
+              label: 'Student %',
+              data: subjPct.map(v => v === null ? 0 : v),
+              backgroundColor: 'rgba(33,150,243,0.6)',
+              borderColor: 'rgba(33,150,243,1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Batch Avg %',
+              data: batchPct.map(v => v === null ? 0 : v),
+              backgroundColor: 'rgba(76,175,80,0.6)',
+              borderColor: 'rgba(76,175,80,1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  }
+
+  // Trend chart: one line per subject
+  if (trendLabels && Object.keys(trendBySubject || {}).length > 0) {
+    const ctx3 = document.getElementById('trendChart');
+    if (ctx3) {
+      const ds = [];
+      const keys = Object.keys(trendBySubject);
+      const colors = toColors(keys.length, 0.2);
+      keys.forEach((s, idx) => {
+        const data = (trendBySubject[s] || []).map(v => v === null ? null : v);
+        ds.push({
+          label: s,
+          data: data,
+          tension: 0.25,
+          spanGaps: true,
+          borderColor: colors[idx].replace(',0.2', ',1'),
+          backgroundColor: colors[idx]
+        });
+      });
+      new Chart(ctx3, {
+        type: 'line',
+        data: { labels: trendLabels, datasets: ds },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  }
+})();
+</script>
+{% endblock content %}
