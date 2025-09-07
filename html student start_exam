@@ -1,1 +1,647 @@
+{% extends 'student/studentbase.html' %}
+{% with exam_mode=True %}
+{% block content %} {%load static%}
+{% load dict_extras %}
 
+<head>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+    :root{
+      --q-unvisited: #bdbdbd;
+      --q-visited-unattempted: #f44336;
+      --q-attempted: #4caf50;
+      --q-current-accent: #ff9800;
+    }
+    body {
+      background: #f8fafc;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+    .exam-header {
+      background: #e3f2fd;
+      color: #01579b;
+      border-bottom: 2px solid #b3e5fc;
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .exam-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    .exam-info {
+      font-size: 1.1rem;
+      color: #0277bd;
+    }
+    .exam-main {
+      max-width: 1400px;
+      margin: 2rem auto;
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 1rem;
+      border: none;
+    }
+    .exam-layout{ display: grid; grid-template-columns: minmax(560px, 1fr) minmax(320px, 380px); gap: 16px; }
+    .question-panel{ padding: 1.5rem 2rem; border-radius: 0.8rem; background:#fff; box-shadow: 0 1px 8px #0001; max-height: calc(100vh - 160px); overflow: auto; }
+    .question-text {
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: #222;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .option-label {
+      font-size: 1.3rem;
+      margin-left: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .form-check {
+      margin-bottom: 1.5rem;
+      background: #f1f8e9;
+      border-radius: 0.8rem;
+      padding: 1rem 1.5rem;
+      transition: background 0.2s;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+    }
+    .form-check-input {
+      transform: scale(1.3);
+      margin-right: 0.5rem;
+    }
+    .form-check-input:checked + .form-check-label {
+      color: #388e3c;
+      font-weight: 700;
+    }
+    .question-image {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 2rem auto 3rem auto;
+      border: 3px solid #0288d1;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border-radius: 0.8rem;
+    }
+    .exam-nav-btns {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2rem;
+    }
+    .btn-nav {
+      min-width: 120px;
+      font-size: 1.1rem;
+      border-radius: 0.5rem;
+      padding: 0.6rem 1.5rem;
+    }
+    .btn-prev { background: #b2dfdb; color: #00695c; }
+    .btn-next { background: #64b5f6; color: #01579b; }
+    .btn-submit { background: #43a047; color: #fff; }
+    .btn-prev:hover { background: #009688; color: #fff; }
+    .btn-next:hover { background: #1976d2; color: #fff; }
+    .btn-submit:hover { background: #1b5e20; color: #fff; }
+    @media (max-width: 768px) {
+      .exam-main { 
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+      }
+      .exam-header { 
+        flex-direction: column; 
+        align-items: flex-start; 
+        padding: 1rem 1.5rem; 
+      }
+      .question-text {
+        font-size: 1.2rem;
+        line-height: 1.5;
+      }
+      .option-label {
+        font-size: 1.1rem;
+      }
+      .form-check {
+        padding: 0.8rem 1.2rem;
+        min-height: 50px;
+      }
+      .question-image {
+        margin: 1.5rem auto 2rem auto;
+      }
+    }
+    @media (max-width: 480px) {
+      .exam-main { 
+        padding: 1.5rem 1rem;
+        margin: 0.5rem;
+      }
+      .question-text {
+        font-size: 1.1rem;
+      }
+      .option-label {
+        font-size: 1rem;
+      }
+      .form-check {
+        padding: 0.6rem 1rem;
+        min-height: 45px;
+      }
+    }
+    </style>
+</head>
+<div class="exam-header">
+  <div class="exam-title">{{ course.course_name|default:'Exam' }}</div>
+  <div class="exam-info">
+    <span><i class="bi bi-person-circle"></i> {{ request.user.first_name }}</span> |
+    <span><i class="bi bi-clock"></i> Time Left: <span id="time">--:--</span></span>
+    | <span>Attempted: <strong><span id="attempted-overall">{{ overall_attempted|default:0 }}</span>/<span id="total-overall">{{ overall_total|default:0 }}</span></strong></span>
+    {% if subjects %}
+      | <span>Section: <strong>{{ active_subject }}</strong> ({{ subj_answered }}/{{ subj_total }})</span>
+    {% endif %}
+    </div>
+</div>
+<div class="exam-main">
+  <div class="exam-layout">
+    <div class="question-panel" id="exam-left-panel">
+        {% if subjects %}
+        <div class="mb-3" style="text-align:right;">
+            <div class="btn-group" role="group" aria-label="Subjects" style="flex-wrap:wrap;">
+                {% for s in subjects %}
+                    {% if s == active_subject %}
+                    <a class="btn btn-sm btn-primary" href="?subject={{ s|urlencode }}">{{ s }}</a>
+                    {% else %}
+                    <a class="btn btn-sm btn-outline-primary" href="?subject={{ s|urlencode }}">{{ s }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        <form class="form" autocomplete="off" method="POST" data-question-id="{{ question.id }}">
+            {% csrf_token %}
+            <input type="hidden" name="course_id" value="{{ course.id }}">
+            <input type="hidden" name="violation" id="violation-flag" value="false">
+            <input type="hidden" name="current_q_index" value="{{ current_q_index }}">
+            <input type="hidden" name="question_times" id="question_times" value="">
+            {% if subjects %}<input type="hidden" name="active_subject" value="{{ active_subject }}">{% endif %}
+            {% if subjects %}<input type="hidden" name="switch_subject" id="switch_subject" value="">{% endif %}
+            {% if question %}
+      <div class="question-text mb-3">{{ current_q_index }}. {{ question.question|remove_pdf_number }}</div>
+                    {% if question.image %}
+        <img src="{{ question.image.url }}" alt="Question Image" class="question-image" />
+                    {% endif %}
+      <!-- Fixed A, B, C, D options for image-based questions -->
+      <div class="form-check">
+                <input class="form-check-input" type="radio" name="selected_option" id="optionA" value="OptionA" {% if saved_answer == 'OptionA' %}checked{% endif %}>
+        <label class="form-check-label option-label" for="optionA">A</label>
+            </div>
+      <div class="form-check">
+                <input class="form-check-input" type="radio" name="selected_option" id="optionB" value="OptionB" {% if saved_answer == 'OptionB' %}checked{% endif %}>
+        <label class="form-check-label option-label" for="optionB">B</label>
+            </div>
+      <div class="form-check">
+                <input class="form-check-input" type="radio" name="selected_option" id="optionC" value="OptionC" {% if saved_answer == 'OptionC' %}checked{% endif %}>
+        <label class="form-check-label option-label" for="optionC">C</label>
+            </div>
+      <div class="form-check">
+                <input class="form-check-input" type="radio" name="selected_option" id="optionD" value="OptionD" {% if saved_answer == 'OptionD' %}checked{% endif %}>
+        <label class="form-check-label option-label" for="optionD">D</label>
+            </div>
+      <div class="exam-nav-btns">
+                {% if current_q_index > 1 %}
+          <button type="submit" name="prev" class="btn btn-prev btn-nav">Previous</button>
+        {% else %}
+          <span></span>
+                {% endif %}
+                {% if current_q_index < total_questions %}
+          <button type="submit" name="next" class="btn btn-next btn-nav">Next</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </form>
+    </div>
+    <div class="mt-0">
+      {% include 'exam/partials/question_chart.html' %}
+    </div>
+  </div>
+</div>
+<!-- Security warning modal -->
+<div id="warning-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(220,53,69,0.97); color:#fff; z-index:20000; text-align:center; padding-top:20vh;">
+    <div style="display:inline-block; background:#fff; color:#dc3545; border-radius:12px; padding:40px 60px; box-shadow:0 0 30px #0008; max-width:90vw;">
+        <h2 style="font-size:2.5em; font-weight:bold; margin-bottom:20px;">Security Warning</h2>
+        <p id="warning-message" style="font-size:1.3em;">You have exited the exam tab or switched windows.<br>Please do not do this during the exam.</p>
+        <p id="warning-count" style="font-size:1.1em; margin:20px 0;"></p>
+        <button id="close-warning-btn" class="btn btn-danger btn-lg" style="font-size:1.2em; padding:10px 40px;">Continue Exam</button>
+    </div>
+</div>
+<!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Submit confirmation modal -->
+<div class="modal fade" id="submitConfirmModal" tabindex="-1" aria-labelledby="submitConfirmLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="submitConfirmLabel">Submit Exam</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to submit the exam? Once submitted, you cannot change your answers.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelSubmitBtn">Cancel</button>
+        <button type="button" class="btn btn-success" id="confirmSubmitBtn">Confirm Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var examForm = document.querySelector('form');
+    var currentQIndex = parseInt(document.querySelector('input[name="current_q_index"]').value);
+    // --- Disable right-click context menu ---
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+    // --- Basic keyboard shortcut restrictions ---
+    document.addEventListener('keydown', function(e) {
+        // Block F12 (DevTools)
+        if (e.key === 'F12') {
+            e.preventDefault();
+        }
+        // Block Ctrl+Shift+I/J/C/U (DevTools, View Source, Console, etc.)
+        if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C' || e.key === 'K' || e.key === 'U')) {
+            e.preventDefault();
+        }
+        // Block Ctrl+U (View Source)
+        if (e.ctrlKey && e.key === 'u') {
+            e.preventDefault();
+        }
+        // Block Ctrl+S (Save Page)
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+        }
+        // Block Ctrl+P (Print)
+        if (e.ctrlKey && e.key === 'p') {
+            e.preventDefault();
+        }
+    }); // End of keydown event
+
+    // --- Global Exam Timer based on start time ---
+    var courseId = '{{ course.id }}';
+    var suppressKey = 'suppress_violation_' + courseId;
+    // Prevent back-forward cache from showing stale exam page after submission
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+    window.addEventListener('popstate', function() {
+        window.location.reload();
+    });
+    var activeSubject = '{{ active_subject|default:"" }}';
+    var subjTimerKey = activeSubject ? ('exam_subj_timer_' + courseId + '_' + activeSubject) : null;
+    // Clear suppression flag on fresh load
+    sessionStorage.removeItem(suppressKey);
+
+    // Global remaining seconds provided by server
+    var remaining = parseInt('{{ remaining_seconds }}');
+    if (isNaN(remaining) || remaining < 0) { remaining = 0; }
+
+    function renderTimer() {
+        var minutes = Math.floor(remaining / 60);
+        var seconds = remaining % 60;
+        document.getElementById('time').textContent = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    }
+
+    function updateAttemptedBadge(){
+        try{
+            var attemptedKey = 'exam_attempted_' + courseId;
+            var attempted = JSON.parse(sessionStorage.getItem(attemptedKey) || '{}');
+            var count = Object.keys(attempted).length;
+            var el = document.getElementById('attempted-overall');
+            if (el) { el.textContent = String(count); }
+        }catch(e){}
+    }
+
+    function tick() {
+        if (remaining > 0) {
+            remaining -= 1;
+            // Per-subject timer bookkeeping (not displayed here, just tracked)
+            if (subjTimerKey) {
+                sessionStorage.setItem(subjTimerKey, String((parseInt(sessionStorage.getItem(subjTimerKey) || '0') + 1)));
+            }
+            renderTimer();
+            // Also keep attempted badge fresh in case other components update it
+            if ((remaining % 2) === 0) { updateAttemptedBadge(); }
+        }
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            // Prevent multiple submissions
+            if (sessionStorage.getItem('exam_timeup_' + courseId) === 'true') return;
+            sessionStorage.setItem('exam_timeup_' + courseId, 'true');
+            // Save current answer before auto-submit
+            var selected = document.querySelector('input[name="selected_option"]:checked');
+            if (selected) {
+                var existing = document.querySelector('input[name="selected_option"][type="hidden"]');
+                if (!existing) {
+                    var hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'selected_option';
+                    hidden.value = selected.value;
+                    examForm.appendChild(hidden);
+                } else {
+                    existing.value = selected.value;
+                }
+            }
+            // --- FIX: Save time for current question before auto-submit ---
+            saveCurrentTimeOnSubmit();
+            // Submit the form and redirect to check-marks after submission
+            var form = examForm;
+            var formData = new FormData(form);
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "{% url 'calculate-marks' %}", true);
+            xhr.onload = function() {
+                window.location.replace('/student/check-marks/' + courseId);
+            };
+            xhr.send(formData);
+        }
+    }
+    renderTimer();
+    var timerInterval = setInterval(tick, 1000);
+    // Initial attempted render
+    updateAttemptedBadge();
+
+    // Only clear timer and start time on final submission
+
+    // --- Save Answers to Cookie (legacy) ---
+    function saveAns() {
+        var ele = document.getElementsByTagName('input');
+        for (let i = 0; i < ele.length; i++) {
+            if (ele[i].type == "radio" && ele[i].checked) {
+                setCookie(ele[i].name, ele[i].value, 3);
+            }
+        }
+    }
+    window.saveAns = saveAns;
+    function setCookie(cname, cvalue, exdays) {
+        var d = new Date();
+        d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+        var expires = "expires=" + d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+
+    // --- Security violation logic ---
+    var warningModal = document.getElementById('warning-modal');
+    var warningCountText = document.getElementById('warning-count');
+    var closeWarningBtn = document.getElementById('close-warning-btn');
+    var violationFlag = document.getElementById('violation-flag');
+    var violationKey = 'exam_violation_' + courseId;
+    var maxWarnings = 3;
+    var violationRecentlyTriggered = false; // Moved to global scope
+    
+    // Do NOT clear violation counters on entry; this prevents reset after back navigation
+    
+    // --- Prevent re-access if violation occurred ---
+    if (sessionStorage.getItem(violationKey) === 'true') {
+        console.log('[Violation] Violation detected, redirecting to check-marks');
+        window.location.replace('/student/check-marks/' + courseId);
+        return;
+    }
+    // --- Prevent re-access if time is up ---
+    if (sessionStorage.getItem('exam_timeup_' + courseId) === 'true') {
+        window.location.replace('/student/check-marks/' + courseId);
+        return;
+    }
+    // --- Security violation logic ---
+    var warningCount = parseInt(sessionStorage.getItem('examWarningCount_' + courseId)) || 0;
+    
+    function showWarning() {
+        if (violationRecentlyTriggered) {
+            console.log('[Violation] Warning already triggered recently, ignoring');
+            return;
+        }
+        violationRecentlyTriggered = true;
+        setTimeout(function() { 
+            violationRecentlyTriggered = false; 
+            console.log('[Violation] Reset violationRecentlyTriggered flag');
+        }, 1000);
+        
+        warningCount = parseInt(sessionStorage.getItem('examWarningCount_' + courseId)) || 0;
+        warningCount++;
+        sessionStorage.setItem('examWarningCount_' + courseId, warningCount);
+        console.log('[Violation] Warning count increased to:', warningCount);
+        
+        if (warningCount >= maxWarnings) {
+            console.log('[Violation] Max warnings reached, auto-submitting exam');
+            warningModal.style.display = '';
+            warningCountText.textContent = 'You have exceeded the maximum number of warnings. Your exam will be submitted automatically.';
+            violationFlag.value = 'true';
+            closeWarningBtn.style.display = 'none';
+            setTimeout(function() {
+                sessionStorage.setItem(violationKey, 'true');
+                console.log('[Violation] Set violation flag to true');
+                // --- Save current answer before auto-submit ---
+                var selected = document.querySelector('input[name="selected_option"]:checked');
+                if (selected) {
+                    // If not already present in form, add a hidden input
+                    var existing = document.querySelector('input[name="selected_option"][type="hidden"]');
+                    if (!existing) {
+                        var hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'selected_option';
+                        hidden.value = selected.value;
+                        examForm.appendChild(hidden);
+                    } else {
+                        existing.value = selected.value;
+                    }
+                }
+                // --- FIX: Save time for current question before auto-submit ---
+                saveCurrentTimeOnSubmit();
+                // Submit the form and redirect to check-marks after submission
+                var form = examForm;
+                var formData = new FormData(form);
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', "{% url 'calculate-marks' %}", true);
+                xhr.onload = function() {
+                    console.log('[Violation] Auto-submit completed, redirecting');
+                    window.location.replace('/student/check-marks/' + courseId);
+                };
+                xhr.send(formData);
+            }, 2000);
+        } else {
+            warningCountText.textContent = 'Warning ' + warningCount + ' of ' + maxWarnings + '. After 3 warnings, your exam will be submitted.';
+            warningModal.style.display = '';
+            closeWarningBtn.style.display = '';
+            console.log('[Violation] Warning shown:', warningCount, 'of', maxWarnings);
+        }
+    }
+    closeWarningBtn.onclick = function() {
+        warningModal.style.display = 'none';
+    };
+    // Grace window and ignore flag to avoid transient/internal events counting as violations
+    window.__exam_ignore_violations = false;
+    let violationGraceTimer = null;
+    function scheduleViolationCheck(){
+        if (window.__exam_ignore_violations) return;
+        if (sessionStorage.getItem(suppressKey) === 'true') { return; }
+        clearTimeout(violationGraceTimer);
+        violationGraceTimer = setTimeout(function(){
+            if (document.hidden || document.visibilityState === 'hidden') {
+                showWarning();
+            }
+        }, 500); // shorter grace to ensure real tab/window switches count
+    }
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') {
+            scheduleViolationCheck();
+        } else {
+            clearTimeout(violationGraceTimer);
+        }
+    });
+    window.addEventListener('blur', function() { scheduleViolationCheck(); });
+    window.addEventListener('pagehide', function() { scheduleViolationCheck(); });
+
+    // --- Robust Per-question time tracking with debug logging ---
+    var formElem = document.querySelector('form');
+    var questionId = formElem ? formElem.getAttribute('data-question-id') : null;
+    if (!questionId) {
+        // Fallback to index if no questionId (should not happen)
+        questionId = String(currentQIndex);
+    }
+    var courseId = '{{ course.id }}';
+    var timingKey = 'exam_timing_' + courseId; // total exam timing store
+    var timingData = JSON.parse(sessionStorage.getItem(timingKey) || '{}');
+    if (!timingData.question_times) timingData.question_times = {};
+    if (!timingData.arrived_at) timingData.arrived_at = {};
+    var now = Date.now();
+
+    // On exam start (first question), clear all timing data
+    if (currentQIndex === 1 && (!timingData.last_qid || timingData.last_qid !== questionId)) {
+        timingData = { question_times: {}, arrived_at: {}, last_qid: questionId };
+        sendExamLog('[ExamTiming] Cleared timing data for new attempt');
+    }
+
+    // Save time for the question being left (if not first load)
+    if (timingData.last_qid && timingData.arrived_at[timingData.last_qid] && timingData.last_qid !== questionId) {
+        var elapsed = Math.round((now - parseInt(timingData.arrived_at[timingData.last_qid])) / 1000);
+        if (!timingData.question_times[timingData.last_qid]) timingData.question_times[timingData.last_qid] = 0;
+        timingData.question_times[timingData.last_qid] += elapsed;
+        sendExamLog('[ExamTiming] Saved time for Q' + timingData.last_qid + ': +' + elapsed + 's (total: ' + timingData.question_times[timingData.last_qid] + 's)');
+    }
+    // Always set arrival time for the current question
+    timingData.arrived_at[questionId] = now;
+    timingData.last_qid = questionId;
+    sessionStorage.setItem(timingKey, JSON.stringify(timingData));
+    sendExamLog('[ExamTiming] Arrived at Q' + questionId + ' at ' + now);
+
+    function saveCurrentTimeOnSubmit() {
+        var now = Date.now();
+        var timingData = JSON.parse(sessionStorage.getItem(timingKey) || '{}');
+        if (timingData.arrived_at && timingData.last_qid) {
+            var elapsed = Math.round((now - parseInt(timingData.arrived_at[timingData.last_qid])) / 1000);
+            if (!timingData.question_times[timingData.last_qid]) timingData.question_times[timingData.last_qid] = 0;
+            timingData.question_times[timingData.last_qid] += elapsed;
+            sendExamLog('[ExamTiming] (Submit) Saved time for Q' + timingData.last_qid + ': +' + elapsed + 's (total: ' + timingData.question_times[timingData.last_qid] + 's)');
+        }
+        document.getElementById('question_times').value = JSON.stringify(timingData.question_times || {});
+        // Clear after submit
+        sessionStorage.removeItem(timingKey);
+        sendExamLog('[ExamTiming] Cleared timing data after submit');
+    }
+
+    // --- Ensure timing data is always set before submit ---
+    examForm.addEventListener('submit', function(e) {
+        // Suppress violation warnings during intentional navigation
+        sessionStorage.setItem(suppressKey, 'true');
+        saveCurrentTimeOnSubmit();
+        // Debug: log what is being sent
+        console.log('[DEBUG][Frontend] question_times value:', document.getElementById('question_times').value);
+        var submitter = e.submitter || document.activeElement;
+        // no-op for server-driven timer
+    });
+
+    // Remove beforeunload handler to avoid double-counting
+    // window.addEventListener('beforeunload', function() {
+    //     saveCurrentTimeOnSubmit();
+    // });
+
+    // --- Logging function to send logs to the server terminal ---
+    function sendExamLog(msg) {
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/exam/exam-log/', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify({msg: msg}));
+        } catch (e) {}
+    }
+
+    // --- Question timing AJAX logging ---
+    function logQuestionTimeAjax(questionId, eventType) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/exam/question-time-log/', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        xhr.send(JSON.stringify({question_id: questionId, event_type: eventType}));
+    }
+
+    // Wrap navigation logic to log exit/enter events
+    var navButtons = examForm.querySelectorAll('button[name="next"], button[name="prev"], button[name="submit"]');
+    navButtons.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            // Suppress violation warnings for next/prev/submit navigation
+            sessionStorage.setItem(suppressKey, 'true');
+            window.__exam_ignore_violations = true;
+            var currentQid = examForm.getAttribute('data-question-id');
+        logQuestionTimeAjax(currentQid, 'exit');
+            setTimeout(function(){ 
+                window.__exam_ignore_violations = false; 
+                sessionStorage.removeItem(suppressKey);
+            }, 2000);
+        });
+    });
+    function bindAttemptedHandler(root){
+      const form = (root||document).querySelector('form');
+      if (!form) return;
+      const radios = form.querySelectorAll('input[name="selected_option"]');
+      const qid = form.getAttribute('data-question-id');
+      radios.forEach(function(r){
+        r.addEventListener('change', function(){
+          if (qid){
+            try{ attempted[qid] = true; sessionStorage.setItem(attemptedKey, JSON.stringify(attempted)); }catch(e){}
+            updateTilesClassesOnly();
+            // Also update attempted badge in header
+            try{ var attempted = JSON.parse(sessionStorage.getItem('exam_attempted_' + courseId) || '{}'); document.getElementById('attempted-overall').textContent = String(Object.keys(attempted).length); }catch(e){}
+          }
+        });
+      });
+    }
+    // Suppress violation on section switch via header buttons
+    var sectionLinks = document.querySelectorAll('a[href*="?subject="]');
+    sectionLinks.forEach(function(a){
+        a.addEventListener('click', function(e){
+            // Intercept and POST current selection so it gets saved before switching
+            e.preventDefault();
+            sessionStorage.setItem(suppressKey, 'true');
+            var href = a.getAttribute('href');
+            var subjMatch = /[?&]subject=([^&]+)/.exec(href);
+            var targetSubject = subjMatch ? decodeURIComponent(subjMatch[1]) : '';
+            var switchInput = document.getElementById('switch_subject');
+            if (switchInput) {
+                switchInput.value = targetSubject;
+            }
+            // Ensure selected option is present (radios will submit automatically)
+            examForm.submit();
+        });
+    });
+    // On page load, log 'enter' for the current question
+    var currentQid = examForm.getAttribute('data-question-id');
+    logQuestionTimeAjax(currentQid, 'enter');
+    // Ensure attempted badge is up to date after async sidebar loads
+    setTimeout(updateAttemptedBadge, 600);
+});
+</script>
+{% endblock content %}
+{% endwith %}
