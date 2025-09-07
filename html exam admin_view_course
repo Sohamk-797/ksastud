@@ -1,1 +1,94 @@
+{% extends 'exam/adminbase.html' %}
+{% block content %}
+{%load static%}
 
+<head>
+  <style>
+    .table-header {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #0288d1;
+      margin: 2rem 0 1.5rem 0;
+      text-align: center;
+    }
+    .table-container {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 2rem 1.5rem;
+      border: none;
+    }
+    .table th, .table td {
+      vertical-align: middle;
+      text-align: center;
+    }
+    .btn-xs {
+      font-size: 0.9rem;
+      border-radius: 0.5rem;
+      padding: 0.3rem 1rem;
+    }
+    .btn-success { background: #43a047; border: none; }
+    .btn-success:hover { background: #1b5e20; }
+    .btn-warning { background: #ff9800; border: none; color: white; }
+    .btn-warning:hover { background: #f57c00; color: white; }
+    .btn-danger { background: #ef5350; border: none; }
+    .btn-danger:hover { background: #b71c1c; }
+    .text-success { color: #43a047 !important; }
+    @media (max-width: 600px) {
+      .table-container { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<br><br>
+<div class="container">
+  <div class="table-header">Tests</div>
+  <div class="table-container">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Test</th>
+          <th>Total Question</th>
+          <th>Total Marks</th>
+          <th>Status</th>
+          <th>Activate</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in courses %}
+        <tr>
+          <td>{{t.course_name}}</td>
+          <td>{{t.question_number}}</td>
+          <td>{{t.total_marks}}</td>
+          <td>{{ t.get_status_display }}</td>
+          <td>
+            {% if t.status == 'draft' %}
+            <form method="post" action="{% url 'activate-course' t.id %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success btn-xs">Activate</button>
+            </form>
+            {% elif t.status == 'active' %}
+              <span class="text-success">Active</span>
+              <br>
+              <a href="{% url 'reactivate-course' t.id %}" class="btn btn-warning btn-xs" style="margin-top: 5px;" title="Reactivate test for selected students">
+                Reactivate
+              </a>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <form method="post" action="{% url 'delete-course' t.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete this test and all its questions and images?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger btn-xs" title="Delete Test">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<br><br><br><br><br><br>
+{% endblock content %}
