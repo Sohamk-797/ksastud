@@ -1,1 +1,191 @@
+{% extends 'exam/adminbase.html' %}
+{% block content %}
+{%load static%}
+{% load dict_extras %}
 
+<head>
+  <style>
+    .marks-header {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #0288d1;
+      margin: 2rem 0 1.5rem 0;
+      text-align: center;
+    }
+    .marks-table {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 2rem 1.5rem;
+      border: none;
+    }
+    .table th, .table td {
+      vertical-align: middle;
+      text-align: center;
+    }
+    .alert-danger {
+      font-size: 1.3em;
+      margin: 40px auto;
+      max-width: 700px;
+    }
+    @media (max-width: 600px) {
+      .marks-table { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<br><br>
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% else %}
+<div class="container">
+  <div class="marks-header">View Marks</div>
+  <div class="marks-table">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Test</th>
+          <th>Marks Obtained</th>
+          <th>Total Possible Marks</th>
+          <th>Attempted (Total Questions)</th>
+          <th>Number of Attempts</th>
+          <th>Exam Date</th>
+          <th>Violation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in results %}
+        <tr>
+          <td>{{ t.exam }}</td>
+          <td>{{ t.marks }}</td>
+          <td>{{ total_possible_marks }}</td>
+          <td>{{ overall_attempted }}/{{ all_questions|length }}</td>
+          <td>Attempt {{ forloop.counter }}</td>
+          <td>{{ t.date|date:"d M Y, h:i A" }}</td>
+          <td>{% if t.violation %}Yes{% else %}No{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% if subject_stats %}
+<div class="container">
+  <div class="marks-header" style="font-size:1.3rem;">Subject-wise Breakdown</div>
+  <div class="marks-table">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Total</th>
+          <th>Attempted</th>
+          <th>Correct</th>
+          <th>Incorrect</th>
+          <th>Marks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in subject_stats %}
+        <tr>
+          <td>{{ s.subject }}</td>
+          <td>{{ s.total }}</td>
+          <td>{{ s.attempted }}</td>
+          <td>{{ s.correct }}</td>
+          <td>{{ s.incorrect }}</td>
+          <td>{{ s.marks }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+<!-- Per-question analysis, grouped by subject -->
+<div class="container">
+  <div class="marks-header" style="font-size:1.3rem;">Per-Question Analysis by Subject — {{ course.course_name }}</div>
+  {% if subject_stats %}
+    {% for s in subject_stats %}
+      <div class="marks-table">
+        <h5 style="text-align:left; font-weight:700; color:#01579b;">{{ s.subject }}</h5>
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Question</th>
+              <th>Student's Answer</th>
+              <th>Correct Answer</th>
+              <th>Time Taken (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% with qs=questions_by_subject|get_item:s.subject %}
+            {% for q in qs %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>
+                {% if q.image %}
+                  <img src="{{ q.image.url }}" alt="Question {{ q.question_number }}" style="max-width: 100%; height: auto; object-fit: contain;" />
+                {% else %}
+                  <span style="color:#888;">No image</span>
+                {% endif %}
+              </td>
+              <td>
+                {% with ans=answers_by_qid|get_item:q.id %}
+                  {% if ans and ans.selected_option %}
+                    {{ ans.selected_option|default:'-' }}
+                  {% else %}
+                    <span style="color: #888;">Not Answered</span>
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td>{{ q.correct_answer }}</td>
+              <td>{{ qtl_by_qid|get_item:q.id }}</td>
+            </tr>
+            {% endfor %}
+          {% endwith %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="marks-table">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Question</th>
+            <th>Student's Answer</th>
+            <th>Correct Answer</th>
+            <th>Time Taken (s)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in all_questions %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+              {% if q.image %}
+                <img src="{{ q.image.url }}" alt="Question {{ q.question_number }}" style="max-width: 100%; height: auto; object-fit: contain;" />
+              {% else %}
+                <span style="color:#888;">No image</span>
+              {% endif %}
+            </td>
+            <td>
+              {% with ans=answers_by_qid|get_item:q.id %}
+                {% if ans and ans.selected_option %}
+                  {{ ans.selected_option|default:'-' }}
+                {% else %}
+                  <span style="color: #888;">Not Answered</span>
+                {% endif %}
+              {% endwith %}
+            </td>
+            <td>{{ q.correct_answer }}</td>
+            <td>{{ qtl_by_qid|get_item:q.id }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock content %}
