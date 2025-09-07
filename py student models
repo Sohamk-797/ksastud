@@ -1,1 +1,30 @@
+from django.db import models
+from django.contrib.auth.models import User
 
+class Student(models.Model):
+    user=models.OneToOneField(User,on_delete=models.CASCADE)
+    address = models.CharField(max_length=40)
+    mobile = models.CharField(max_length=20,null=False)
+    BATCH_CHOICES = (
+        ('11th CET', '11th CET'),
+        ('11th NEET', '11th NEET'),
+        ('11th JEE', '11th JEE'),
+        ('12th CET', '12th CET'),
+        ('12th NEET', '12th NEET'),
+        ('12th JEE', '12th JEE'),
+        # Emergency batches
+        ('11th Emergency 1', '11th Emergency 1'),
+        ('11th Emergency 2', '11th Emergency 2'),
+        ('12th Emergency 1', '12th Emergency 1'),
+        ('12th Emergency 2', '12th Emergency 2'),
+    )
+    batch = models.CharField(max_length=20, choices=BATCH_CHOICES, default='11th CET')
+   
+    @property
+    def get_name(self):
+        return self.user.first_name+" "+self.user.last_name
+    @property
+    def get_instance(self):
+        return self
+    def __str__(self):
+        return self.user.first_name
