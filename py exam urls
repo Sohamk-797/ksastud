@@ -1,1 +1,12 @@
+from django.urls import path
+from . import views
 
+urlpatterns = [
+    path('activate-course/<int:pk>/', views.activate_course_view, name='activate-course'),
+    path('exam-log/', views.exam_log_view, name='exam-log'),
+    path('question-time-log/', views.question_time_log_view, name='question-time-log'),
+    # Question statuses API for student sidebar chart
+    path('<int:attempt_id>/statuses/', views.question_statuses_api, name='question-statuses-api'),
+    # Lightweight endpoint to persist current selection without re-rendering the page
+    path('save-answer/', views.save_answer_api, name='save-answer-api'),
+]
