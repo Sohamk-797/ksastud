@@ -1,1 +1,105 @@
+{% extends 'exam/adminbase.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<head>
+  <style>
+    .form-header {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #0288d1;
+      margin: 2rem 0 1.5rem 0;
+      text-align: center;
+    }
+    .form-container {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 2rem 2.5rem;
+      max-width: 600px;
+      margin: 2rem auto;
+      border: none;
+    }
+    .form-group label {
+      font-weight: 500;
+      color: #01579b;
+    }
+    .btn-primary {
+      background: #0288d1;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1.1rem;
+      padding: 0.6rem 2rem;
+    }
+    .btn-primary:hover {
+      background: #01579b;
+    }
+    @media (max-width: 600px) {
+      .form-container { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<div class="form-header">Update Student</div>
+<div class="form-container">
+  <form method="post" autocomplete="off" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-group mb-3">
+      <label for="first_name">First Name</label>
+      {% render_field userForm.first_name class="form-control form-control-sm rounded-0" placeholder="First Name" %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="last_name">Last Name</label>
+      {% render_field userForm.last_name class="form-control form-control-sm rounded-0" placeholder="Last Name" %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="mobile">Contact</label>
+      {% render_field studentForm.mobile class="form-control form-control-sm rounded-0" placeholder="Mobile" %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="address">Address</label>
+      {% render_field studentForm.address class="form-control form-control-sm rounded-0" placeholder="Address" %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="batch">Batch</label>
+      {% render_field studentForm.batch class="form-control form-control-sm rounded-0" %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="username">Username</label>
+      {% render_field userForm.username class="form-control form-control-sm rounded-0" placeholder="Username" %}
+      {% if userForm.username.errors %}
+        <div class="text-danger small mt-1">{{ userForm.username.errors.0 }}</div>
+      {% endif %}
+    </div>
+    <div class="form-group mb-3">
+      <label for="password">Password</label>
+      <div class="input-group">
+        {% render_field userForm.password class="form-control form-control-sm rounded-0" placeholder="Leave blank to keep current password" %}
+        <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+      {% if userForm.password.errors %}
+        <div class="text-danger small mt-1">{{ userForm.password.errors.0 }}</div>
+      {% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg">Update</button>
+  </form>
+</div>
 
+<script>
+  (function(){
+    const btn = document.getElementById('togglePassword');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      const input = document.getElementById('{{ userForm.password.id_for_label }}');
+      if(!input) return;
+      const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+      input.setAttribute('type', type);
+      this.querySelector('i').classList.toggle('fa-eye-slash');
+    });
+  })();
+  </script>
+
+
+
+<br><br><br><br><br><br><br><br>
+{% endblock content %}
