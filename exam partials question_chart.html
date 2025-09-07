@@ -1,1 +1,59 @@
+{% load static %}
+<div id="question-chart-sidebar" class="question-chart-sidebar" aria-label="Question navigation sidebar" data-course-id="{{ course.id }}" data-active-subject="{{ active_subject|default:'' }}" data-start-url="{% url 'start-exam' course.id %}" data-current-qid="{{ question.id|default:'' }}">
+  <div class="qc-header">
+    <div class="qc-title">Question Chart</div>
+    <button class="qc-toggle d-lg-none btn btn-sm btn-outline-primary" type="button" aria-expanded="false" aria-controls="qc-drawer" id="qc-toggle-btn">Open</button>
+  </div>
+  <div id="qc-drawer" class="qc-drawer">
+    <div class="qc-legend" role="group" aria-label="Legend">
+      <span class="qc-legend-item"><span class="qc-dot q-unvisited"></span>Unvisited</span>
+      <span class="qc-legend-item"><span class="qc-dot q-visited"></span>Visited (No Answer)</span>
+      <span class="qc-legend-item"><span class="qc-dot q-attempted"></span>Attempted</span>
+      <span class="qc-legend-item"><span class="qc-dot q-current"></span>Current</span>
+    </div>
+    <div id="qc-sections" class="qc-sections" aria-live="polite" aria-busy="false">
+      <!-- Sections with tiles will render here -->
+    </div>
+    <div class="qc-submit-wrap">
+      <button id="qc-submit-btn" class="btn btn-success w-100">Submit Exam</button>
+      <small class="text-muted d-block mt-1">You can submit anytime</small>
+    </div>
+  </div>
+</div>
 
+<style>
+  :root {
+    --q-unvisited: #bdbdbd;
+    --q-visited-unattempted: #f44336;
+    --q-attempted: #4caf50;
+    --q-current-accent: #ff9800;
+  }
+  .question-chart-sidebar { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; padding: 12px; background: #fff; border-radius: 10px; box-shadow: 0 2px 12px #0001; }
+  .qc-header { display:flex; align-items:center; justify-content: space-between; margin-bottom: 8px; }
+  .qc-title { font-weight: 600; color: #01579b; }
+  .qc-legend { display:flex; gap:10px; flex-wrap: wrap; margin: 8px 0 12px 0; font-size: 0.9rem; }
+  .qc-legend-item { display:flex; align-items:center; gap:6px; color:#555; }
+  .qc-dot { width: 14px; height: 14px; border-radius: 3px; display:inline-block; border: 1px solid #999; }
+  .qc-dot.q-attempted { background: var(--q-attempted); border-color: #2e7d32; }
+  .qc-dot.q-visited { background: var(--q-visited-unattempted); border-color: #b71c1c; }
+  .qc-dot.q-unvisited { background: var(--q-unvisited); border-color: #9e9e9e; }
+  .qc-dot.q-current { background: var(--q-current-accent); border-color: #ef6c00; }
+  .qc-section { margin-bottom: 14px; }
+  .qc-section-head { display:flex; justify-content: space-between; align-items:center; margin-bottom: 6px; color:#0277bd; font-weight:600; }
+  .qc-grid { display:grid; grid-template-columns: repeat(8, 1fr); gap:6px; }
+  .qc-tile { display:flex; align-items:center; justify-content:center; height: 40px; border-radius: 6px; font-size: 0.9rem; color:#fff; cursor:pointer; outline: none; border:2px solid transparent; width: 100%; }
+  .qc-tile.q-unvisited { background: var(--q-unvisited); color:#212121; }
+  .qc-tile.q-visited { background: var(--q-visited-unattempted); }
+  .qc-tile.q-attempted { background: var(--q-attempted); }
+  .qc-tile.q-current { box-shadow: 0 0 0 2px var(--q-current-accent) inset; border-color: var(--q-current-accent); color:#212121; }
+  .qc-tile:focus { box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.6); }
+  .qc-submit-wrap { margin-top: 12px; }
+  /* Mobile drawer */
+  .qc-drawer { display:block; }
+  @media (max-width: 992px) {
+    .qc-drawer { display:none; }
+    .qc-drawer.open { display:block; }
+  }
+</style>
+
+<script defer src="{% static 'js/exam_question_chart.js' %}"></script>
