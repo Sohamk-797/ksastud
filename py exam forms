@@ -1,1 +1,80 @@
+from django import forms
+from django.contrib.auth.models import User
+from . import models
+from .models import Course
 
+class ContactusForm(forms.Form):
+    Name = forms.CharField(max_length=30)
+    Email = forms.EmailField()
+    Message = forms.CharField(max_length=500,widget=forms.Textarea(attrs={'rows': 3, 'cols': 30}))
+
+class TeacherSalaryForm(forms.Form):
+    salary=forms.IntegerField()
+
+class CourseForm(forms.ModelForm):
+    negative_mark = forms.ChoiceField(
+        choices=[('False', 'No'), ('True', 'Yes')],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        initial='False',
+        label='Negative Mark'
+    )
+    batch = forms.ChoiceField(
+        choices=Course.BATCH_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label='Batch'
+    )
+    class Meta:
+        model = Course
+        fields = ['course_name', 'question_number', 'total_marks', 'marks_per_question', 'duration_minutes', 'negative_mark', 'batch']
+        widgets = {
+            'marks_per_question': forms.NumberInput(attrs={'class': 'form-control rounded-0', 'min': 1}),
+        }
+
+    def clean_negative_mark(self):
+        value = self.cleaned_data['negative_mark']
+        return value == 'True'
+
+class QuestionForm(forms.ModelForm):
+    
+    #this will show dropdown __str__ method course model is shown on html so override it
+    #to_field_name this will fetch corresponding value  user_id present in course model and return it
+    courseID = forms.ModelChoiceField(queryset=Course.objects.all(), empty_label="Course Name", to_field_name="id")
+    class Meta:
+        model = models.Question
+        fields = [
+            'subject', 'marks', 'question', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer', 'image'
+        ]
+        widgets = {
+            'question': forms.Textarea(attrs={'rows': 3, 'cols': 50})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Allow adding image-only questions by not forcing option texts
+        self.fields['option_a'].required = False
+        self.fields['option_b'].required = False
+        self.fields['option_c'].required = False
+        self.fields['option_d'].required = False
+        # Make subject mandatory and restrict choices to specific subjects only
+        subj_field = self.fields.get('subject')
+        if subj_field is not None:
+            # Replace choices to exclude 'General'
+            core_choices = [
+                ('Physics', 'Physics'),
+                ('Chemistry', 'Chemistry'),
+                ('Maths', 'Maths'),
+                ('Biology', 'Biology'),
+            ]
+            # Add placeholder as first option
+            subj_field.choices = [('', 'Choose subject')] + core_choices
+            subj_field.required = True
+            subj_field.initial = ''
+            # Optional: add form-select class (Bootstrap) and required attribute for UX
+            widget = subj_field.widget
+            attrs = widget.attrs or {}
+            attrs.setdefault('class', 'form-select')
+            attrs['required'] = 'required'
+            widget.attrs = attrs
+
+class PDFUploadForm(forms.Form):
+    pdf_file = forms.FileField(label="Upload Question Paper PDF")
