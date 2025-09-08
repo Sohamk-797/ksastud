@@ -1,0 +1,121 @@
+{% extends 'exam/adminbase.html' %}
+{% block content %}
+{%load static%}
+{% load dict_extras %}
+
+<head>
+  <style>
+    .table-header {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #0288d1;
+      margin: 2rem 0 1.5rem 0;
+      text-align: center;
+    }
+    .table-container {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow: 0 2px 16px #0001;
+      padding: 2rem 1.5rem;
+      border: none;
+    }
+    .table th, .table td {
+      vertical-align: middle;
+      text-align: center;
+    }
+    .btn-primary { background: #0288d1; border: none; border-radius: 0.5rem; }
+    .btn-primary:hover { background: #01579b; }
+    @media (max-width: 600px) {
+      .table-container { padding: 1rem 0.5rem; }
+    }
+  </style>
+</head>
+<br><br>
+<div class="container">
+  <form method="get" action="{% url 'admin-percentile-ranking' %}" class="row g-2 mb-3">
+      <div class="col-12 col-md-4">
+        <select class="form-control" name="batch" onchange="this.form.submit()">
+          <option value="all" {% if selected_batch == 'all' %}selected{% endif %}>All Batches</option>
+          {% if batches %}
+            {% for b in batches %}
+              <option value="{{ b }}" {% if selected_batch == b %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div class="col-12 col-md-6">
+        <input type="text" class="form-control" name="q" placeholder="Search student by name or username" value="{{ search_query|default:'' }}" />
+      </div>
+      <div class="col-12 col-md-2 d-grid">
+        <button type="submit" class="btn btn-primary">Apply</button>
+      </div>
+    </form>
+  {% if selected_batch and selected_batch != 'all' %}
+    <div class="mb-2"><span class="badge bg-info text-dark">Batch: {{ selected_batch }}</span></div>
+  {% endif %}
+  {% if search_query %}
+    <div class="mb-2"><span class="badge bg-secondary">Search: {{ search_query }}</span></div>
+  {% endif %}
+  {% if rankings_by_course and ordered_courses %}
+    <div class="table-header">Percentile &amp; Ranking</div>
+    {% for course in ordered_courses %}
+      <div class="table-container" style="margin-bottom:1.5rem;">
+        <h4 class="mb-3">{{ course.course_name }}</h4>
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Student Name</th>
+              <th>Marks</th>
+              <th>Percentile</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rankings_by_course|get_item:course.id %}
+            <tr>
+              <td>{{ row.rank }}</td>
+              <td>{{ row.student_name }}</td>
+              <td>{{ row.marks }}</td>
+              <td>{{ row.percentile }}%</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-muted">No results yet for this test.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    {% if is_percentile_page %}
+      <div class="table-header">Percentile &amp; Ranking</div>
+      <div class="alert alert-warning" role="alert">
+        No rankings found for the selected filters.
+      </div>
+    {% else %}
+      <div class="table-header">Registered Students</div>
+      <div class="table-container">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in students %}
+            <tr>
+              <td>{{t.get_name}}</td>
+              <td class="text-center"><a class="btn btn-primary btn-sm" href="{% url 'admin-view-marks' t.id  %}"><i class="fas fa-eye"></i> View Marks</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<br><br><br><br><br><br>
+{% endblock content %}
