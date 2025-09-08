@@ -483,8 +483,22 @@ def admin_view_student_marks_view(request):
 @user_passes_test(is_admin)
 def admin_percentile_ranking_view(request):
     # Build rankings per test (course) dynamically from Results
+    # Optional filters: batch (Student.batch) and student search query (first/last/username)
+    selected_batch = request.GET.get('batch') or ''
+    query = (request.GET.get('q') or '').strip()
+
     # Fetch all results with related objects to minimize queries
     results = models.Result.objects.select_related('student__user', 'exam')
+    # Apply batch filter if provided (and not 'all')
+    if selected_batch and selected_batch.lower() != 'all':
+        results = results.filter(student__batch=selected_batch)
+    # Apply student search filter if provided
+    if query:
+        results = results.filter(
+            Q(student__user__first_name__icontains=query)
+            | Q(student__user__last_name__icontains=query)
+            | Q(student__user__username__icontains=query)
+        )
     # Group results by course
     from collections import defaultdict
     by_course = defaultdict(list)
@@ -533,10 +547,37 @@ def admin_percentile_ranking_view(request):
 
     # Sort courses by name for stable UI
     ordered_courses.sort(key=lambda c: c.course_name)
-    return render(request, 'exam/admin_view_student_marks.html', {
+
+    # Build batch list for filter dropdown from Student model choices
+    try:
+        raw_batches = [b[0] for b in SMODEL.Student.BATCH_CHOICES]
+    except Exception:
+        # Fallback to distinct batches in DB if choices unavailable
+        raw_batches = list(
+            SMODEL.Student.objects.order_by().values_list('batch', flat=True).distinct()
+        )
+    # Ensure emergency batches appear at the bottom
+    EMERGENCY_SET = {
+        '11th Emergency 1', '11th Emergency 2', '12th Emergency 1', '12th Emergency 2'
+    }
+    normal_batches = sorted([b for b in raw_batches if b not in EMERGENCY_SET])
+    emergency_batches = [b for b in raw_batches if b in EMERGENCY_SET]
+    # Keep emergency batches in a consistent order
+    emergency_batches_sorted = sorted(emergency_batches)
+    all_batches = normal_batches + emergency_batches_sorted
+
+    context = {
         'rankings_by_course': rankings_by_course,
         'ordered_courses': ordered_courses,
-    })
+        'batches': all_batches,
+        'selected_batch': selected_batch or 'all',
+        'search_query': query,
+        # Provide students for fallback table when there are no rankings
+        'students': SMODEL.Student.objects.all(),
+        # Mark this as the percentile page so the template can show a specific empty-state message
+        'is_percentile_page': True,
+    }
+    return render(request, 'exam/admin_view_student_marks.html', context)
 
 
 @login_required(login_url='studentlogin')
